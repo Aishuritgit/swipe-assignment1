@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import useCountdown from '../hooks/useCountdown'
+import useCountdown from '../hooks/useCountdown.js'
 
 function makeQuestions(){
   return [
