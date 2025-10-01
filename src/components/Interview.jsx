@@ -27,11 +27,11 @@ export default function Interview({ sessions, setSessions }) {
     }
   }, [])
 
-  // Initialize questions
+  // Initialize questions if not already
   useEffect(() => {
     if (!activeId) return
-    setSessions(prev => {
-      return prev.map(s => {
+    setSessions(prev =>
+      prev.map(s => {
         if (s.id !== activeId) return s
         if (!s.questions || s.questions.length === 0) {
           const qs = makeQuestions().map(q => ({
@@ -45,7 +45,7 @@ export default function Interview({ sessions, setSessions }) {
         }
         return s
       })
-    })
+    )
   }, [activeId, setSessions])
 
   // Load current question and timer
@@ -59,117 +59,77 @@ export default function Interview({ sessions, setSessions }) {
     if (sess.status === 'finished') setFinished(true)
   }, [activeId, sessions])
 
-  // Timer effect
+  // Timer countdown
   useEffect(() => {
     if (!activeId || finished) return
     if (timeLeft <= 0) {
       handleSubmitAnswer()
       return
     }
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1)
-    }, 1000)
+    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000)
     return () => clearInterval(timer)
   }, [activeId, timeLeft, finished])
 
-async function handleSubmitAnswer() {
-  if (!activeId) return
+  // Submit answer and update score
+  async function handleSubmitAnswer() {
+    if (!activeId) return
 
-  const currentAnswer = answer
-  setAnswer('')
+    const currentAnswer = answer
+    setAnswer('')
 
-  try {
-    // Call scoring API first
-    const sess = sessions.find(s => s.id === activeId)
-    const qi = sess?.currentQuestionIndex || 0
-    const q = sess.questions[qi]
-
-    const res = await fetch('/api/score', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q.text, answer: currentAnswer })
-    })
-    const j = await res.json()
-    const score = Math.round((j.score ?? 0) * 100) // convert to 1-100 scale
-    const feedback = j.feedback ?? ''
-
-    // Update sessions state
-    setSessions(prev => prev.map(sess => {
-      if (sess.id !== activeId) return sess
-
-      const updatedQuestions = sess.questions.map((qq, idx) =>
-        idx === qi ? { ...qq, answer: currentAnswer, score, feedback } : qq
-      )
-
-      const nextIndex = qi + 1
-      const isFinished = nextIndex >= updatedQuestions.length
-      const finalScore = isFinished
-        ? Math.round(updatedQuestions.reduce((a, b) => a + (b.score ?? 0), 0) / updatedQuestions.length)
-        : sess.finalScore
-
-      if (isFinished) setFinished(true)
-
-      return {
-        ...sess,
-        questions: updatedQuestions,
-        currentQuestionIndex: nextIndex,
-        status: isFinished ? 'finished' : 'in-progress',
-        finalScore
-      }
-    }))
-
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-    // Call scoring API
     try {
       const sess = sessions.find(s => s.id === activeId)
-      if (!sess) return
-      const qi = sess.currentQuestionIndex || 0
-      const prevQ = sess.questions[qi - 1]
-      if (!prevQ) return
+      const qi = sess?.currentQuestionIndex || 0
+      const q = sess.questions[qi]
 
+      // Call scoring API
       const res = await fetch('/api/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: prevQ.text, answer: prevQ.answer })
+        body: JSON.stringify({ question: q.text, answer: currentAnswer })
       })
       const j = await res.json()
-      // Convert API score to 1-100 scale
-      const score = Math.round((j.score ?? 0) * 100)
+      const score = Math.round((j.score ?? 0) * 100) // 1-100 scale
       const feedback = j.feedback ?? ''
 
       // Update session with score & feedback
-      setSessions(prev => prev.map(sess => {
-        if (sess.id !== activeId) return sess
-        const qs = sess.questions.map((q, idx) =>
-          idx === qi - 1 ? { ...q, score, feedback } : q
-        )
+      setSessions(prev =>
+        prev.map(sess => {
+          if (sess.id !== activeId) return sess
 
-        // Check if finished
-        const isFinished = (sess.currentQuestionIndex || 0) >= qs.length
-        const finalScore = isFinished
-          ? Math.round(qs.reduce((a, b) => a + (b.score ?? 0), 0) / qs.length)
-          : sess.finalScore
+          const updatedQuestions = sess.questions.map((qq, idx) =>
+            idx === qi ? { ...qq, answer: currentAnswer, score, feedback } : qq
+          )
 
-        if (isFinished) setFinished(true)
+          const nextIndex = qi + 1
+          const isFinished = nextIndex >= updatedQuestions.length
+          const finalScore = isFinished
+            ? Math.round(updatedQuestions.reduce((a, b) => a + (b.score ?? 0), 0) / updatedQuestions.length)
+            : sess.finalScore
 
-        return { ...sess, questions: qs, finalScore, status: isFinished ? 'finished' : sess.status }
-      }))
+          if (isFinished) setFinished(true)
+
+          return {
+            ...sess,
+            questions: updatedQuestions,
+            currentQuestionIndex: nextIndex,
+            status: isFinished ? 'finished' : 'in-progress',
+            finalScore
+          }
+        })
+      )
     } catch (err) {
       console.error(err)
     }
   }
 
-  // Show session list
+  // Session list = “dashboard view”
   if (!activeId) {
     return (
       <div className="card" style={{ padding: 16 }}>
         <h3>Start or Resume Interview</h3>
         {sessions.map(s => (
-          <div key={s.id} style={{ marginTop: 8 }}>
+          <div key={s.id} style={{ marginTop: 8, padding: 8, border: '1px solid #ddd', borderRadius: 6 }}>
             <strong>{s.name || 'Unknown'}</strong>
             <div className="small">Status: {s.status}</div>
             {s.status === 'finished' && <div className="small">Final Score: {s.finalScore}</div>}
@@ -228,4 +188,4 @@ async function handleSubmitAnswer() {
       </div>
     </div>
   )
-}
+          }
