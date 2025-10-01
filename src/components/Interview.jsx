@@ -84,6 +84,7 @@ export default function Interview({ sessions, setSessions }) {
       setAnswer('')
     }
 
+    // check finish
     const now = sessions.find(s => s.id === activeId)
     const idx = now?.currentQuestionIndex || 0
     if (idx >= (now?.questions?.length || 6)) {
@@ -95,6 +96,10 @@ export default function Interview({ sessions, setSessions }) {
       const next = now.questions[idx]
       setTimeLeft(next.timeRemaining || next.timeLimit || 60)
     }
+  }
+
+  async function handleAutoSubmit() {
+    await handleSubmitAnswer()
   }
 
   if (!activeId) {
@@ -114,9 +119,7 @@ export default function Interview({ sessions, setSessions }) {
   }
 
   const sess = sessions.find(s => s.id === activeId)
-  if (!sess) {
-    return <div className="card">Session not found.</div>
-  }
+  if (!sess) return <div className="card">Session not found.</div>
 
   const qi = sess.currentQuestionIndex || 0
   const q = sess.questions?.[qi]
@@ -143,65 +146,8 @@ export default function Interview({ sessions, setSessions }) {
       />
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={handleSubmitAnswer}>Submit</button>
-        <div style={{ marginLeft: 'auto' }} className="small">Difficulty: {q.difficulty}</div>
-      </div>
-    </div>
-  )
-}        const qs = s.questions.map((qq,idx)=> idx===qi? {...qq, answer, score:0, feedback:'(scoring failed)'} : qq)
-        return {...s, questions: qs, currentQuestionIndex: qi+1}
-      }))
-      setAnswer('')
-    }
-    // check finish
-    const now = sessions.find(s=>s.id===activeId)
-    const idx = now?.currentQuestionIndex || 0
-    if(idx >= (now?.questions?.length||6)){
-      // compute final score
-      const avg = Math.round((now.questions.reduce((a,b)=> a + (b.score||0), 0) / now.questions.length) * 10)/10
-      updateSession(activeId, { status:'finished', finalScore: avg })
-      alert('Interview finished. Score: '+avg)
-      setActiveId(null)
-    } else {
-      // set timer for next
-      const next = now.questions[idx]
-      setTimeLeft(next.timeRemaining || next.timeLimit || 60)
-    }
-  }
-
-  async function handleAutoSubmit(){
-    // submit current answer (may be empty)
-    await handleSubmitAnswer()
-  }
-
-  if(!activeId) return (
-    <div className="card">
-      <h3>Start or Resume Interview</h3>
-      <div className="small">Click start to begin on a session saved above.</div>
-      {sessions.map(s=>(
-        <div key={s.id} style={{marginTop:8}}>
-          <strong>{s.name||'Unknown'}</strong>
-          <div className="small">Status: {s.status}</div>
-          <button onClick={()=> handleStart(s.id)}>Start / Resume</button>
-        </div>
-      ))}
-    </div>
-  )
-
-  const sess = sessions.find(s=>s.id===activeId)
-  if(!sess) return null
-  const qi = sess.currentQuestionIndex || 0
-  const q = sess.questions[qi]
-
-  return (
-    <div className="card" id={'start-'+sess.id}>
-      <h3>Interview — {sess.name || 'Candidate'}</h3>
-      <div className="small">Question {qi+1} of {sess.questions.length} — Time left: {timeLeft}s</div>
-      <div style={{marginTop:8}}><strong>{q.text}</strong></div>
-      <textarea rows={6} value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Type your answer here..." />
-      <div style={{display:'flex', gap:8}}>
-        <button onClick={handleSubmitAnswer}>Submit</button>
         <button onClick={handleAutoSubmit}>Auto-submit (force)</button>
-        <div style={{marginLeft:'auto'}} className="small">Difficulty: {q.difficulty}</div>
+        <div style={{ marginLeft: 'auto' }} className="small">Difficulty: {q.difficulty}</div>
       </div>
     </div>
   )
