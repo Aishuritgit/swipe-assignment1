@@ -50,7 +50,6 @@ export default function Interview({ sessions, setSessions }) {
       return prev
     })
 
-    // Load current question & timer
     const sess = sessions.find(s => s.id === activeId)
     if (!sess) return
     const qi = sess.currentQuestionIndex || 0
@@ -59,7 +58,7 @@ export default function Interview({ sessions, setSessions }) {
     if (sess.status === 'finished') setFinished(true)
   }, [activeId, sessions, setSessions])
 
-  // Timer effect for auto-submission
+  // Timer effect for auto-submit
   useEffect(() => {
     if (!activeId || finished) return
     if (timeLeft <= 0) {
@@ -202,76 +201,4 @@ export default function Interview({ sessions, setSessions }) {
       </div>
     </div>
   )
-}    const idx = now?.currentQuestionIndex || 0
-    if (idx >= (now?.questions?.length || 6)) {
-      const avg = Math.round((now.questions.reduce((a, b) => a + (b.score || 0), 0) / now.questions.length) * 10) / 10
-      updateSession(activeId, { status: 'finished', finalScore: avg })
-      setFinished(true) // show results screen
-    } else {
-      const next = now.questions[idx]
-      setTimeLeft(next.timeRemaining || next.timeLimit || 60)
-    }
-  }
-
-  if (!activeId) {
-    return (
-      <div className="card">
-        <h3>Start or Resume Interview</h3>
-        <div className="small">Click start to begin on a session saved above.</div>
-        {sessions.map(s => (
-          <div key={s.id} style={{ marginTop: 8 }}>
-            <strong>{s.name || 'Unknown'}</strong>
-            <div className="small">Status: {s.status}</div>
-            {s.status === 'finished' && <div className="small">Final Score: {s.finalScore}</div>}
-            <button onClick={() => { setActiveId(s.id); setFinished(false) }}>Start / Resume</button>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const sess = sessions.find(s => s.id === activeId)
-  if (!sess) return <div className="card">Session not found.</div>
-
-  if (finished) {
-    return (
-      <div className="card">
-        <h3>Interview Finished — {sess.name || 'Candidate'}</h3>
-        <p><strong>Final Score:</strong> {sess.finalScore}</p>
-        <h4>Answer Summary:</h4>
-        <ul>
-          {sess.questions.map((q, idx) => (
-            <li key={idx}>
-              <strong>Q{idx + 1}:</strong> {q.text} <br />
-              <strong>Answer:</strong> {q.answer} <br />
-              <strong>Score:</strong> {q.score} <br />
-              <strong>Feedback:</strong> {q.feedback}
-            </li>
-          ))}
-        </ul>
-        <button onClick={() => { setActiveId(null); setFinished(false) }}>Close</button>
-      </div>
-    )
-  }
-
-  const qi = sess.currentQuestionIndex || 0
-  const q = sess.questions?.[qi]
-
-  return (
-    <div className="card" id={'start-' + sess.id}>
-      <h3>Interview — {sess.name || 'Candidate'}</h3>
-      <div className="small">Question {qi + 1} of {sess.questions.length} — Time left: {timeLeft}s</div>
-      <div style={{ marginTop: 8 }}><strong>{q.text}</strong></div>
-      <textarea
-        rows={6}
-        value={answer}
-        onChange={e => setAnswer(e.target.value)}
-        placeholder="Type your answer here..."
-      />
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={handleSubmitAnswer}>Submit</button>
-        <div style={{ marginLeft: 'auto' }} className="small">Difficulty: {q.difficulty}</div>
-      </div>
-    </div>
-  )
-}
+          }
