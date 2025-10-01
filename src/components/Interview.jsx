@@ -15,6 +15,7 @@ export default function Interview({ sessions, setSessions }) {
   const [activeId, setActiveId] = useState(null)
   const [answer, setAnswer] = useState('')
   const [timeLeft, setTimeLeft] = useState(0)
+  const [finished, setFinished] = useState(false)
 
   useEffect(() => {
     const h = window.location.hash
@@ -31,7 +32,6 @@ export default function Interview({ sessions, setSessions }) {
     if (!sess) return
 
     if (!sess.questions || sess.questions.length === 0) {
-      // initialize questions
       const qs = makeQuestions().map(q => ({
         ...q, answer: '', score: null, feedback: '', timeRemaining: q.timeLimit
       }))
@@ -40,8 +40,31 @@ export default function Interview({ sessions, setSessions }) {
       const qi = sess.currentQuestionIndex || 0
       setAnswer(sess.questions[qi]?.answer || '')
       setTimeLeft(sess.questions[qi]?.timeRemaining || sess.questions[qi]?.timeLimit || 0)
+      if (sess.status === 'finished') setFinished(true)
     }
   }, [activeId])
+
+  // Timer effect
+  useEffect(() => {
+    if (!activeId || finished) return
+    if (timeLeft <= 0) {
+      handleSubmitAnswer()
+      return
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          handleSubmitAnswer()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [activeId, timeLeft, finished])
 
   function updateSession(id, patch) {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
@@ -84,22 +107,17 @@ export default function Interview({ sessions, setSessions }) {
       setAnswer('')
     }
 
-    // check finish
+    // Check if finished
     const now = sessions.find(s => s.id === activeId)
     const idx = now?.currentQuestionIndex || 0
     if (idx >= (now?.questions?.length || 6)) {
       const avg = Math.round((now.questions.reduce((a, b) => a + (b.score || 0), 0) / now.questions.length) * 10) / 10
       updateSession(activeId, { status: 'finished', finalScore: avg })
-      alert('Interview finished. Score: ' + avg)
-      setActiveId(null)
+      setFinished(true) // show results screen
     } else {
       const next = now.questions[idx]
       setTimeLeft(next.timeRemaining || next.timeLimit || 60)
     }
-  }
-
-  async function handleAutoSubmit() {
-    await handleSubmitAnswer()
   }
 
   if (!activeId) {
@@ -111,7 +129,8 @@ export default function Interview({ sessions, setSessions }) {
           <div key={s.id} style={{ marginTop: 8 }}>
             <strong>{s.name || 'Unknown'}</strong>
             <div className="small">Status: {s.status}</div>
-            <button onClick={() => setActiveId(s.id)}>Start / Resume</button>
+            {s.status === 'finished' && <div className="small">Final Score: {s.finalScore}</div>}
+            <button onClick={() => { setActiveId(s.id); setFinished(false) }}>Start / Resume</button>
           </div>
         ))}
       </div>
@@ -121,17 +140,29 @@ export default function Interview({ sessions, setSessions }) {
   const sess = sessions.find(s => s.id === activeId)
   if (!sess) return <div className="card">Session not found.</div>
 
-  const qi = sess.currentQuestionIndex || 0
-  const q = sess.questions?.[qi]
-
-  if (!q) {
+  if (finished) {
     return (
       <div className="card">
-        <h3>Interview — {sess.name || "Candidate"}</h3>
-        <div className="small">No questions available. Please restart interview.</div>
+        <h3>Interview Finished — {sess.name || 'Candidate'}</h3>
+        <p><strong>Final Score:</strong> {sess.finalScore}</p>
+        <h4>Answer Summary:</h4>
+        <ul>
+          {sess.questions.map((q, idx) => (
+            <li key={idx}>
+              <strong>Q{idx + 1}:</strong> {q.text} <br />
+              <strong>Answer:</strong> {q.answer} <br />
+              <strong>Score:</strong> {q.score} <br />
+              <strong>Feedback:</strong> {q.feedback}
+            </li>
+          ))}
+        </ul>
+        <button onClick={() => { setActiveId(null); setFinished(false) }}>Close</button>
       </div>
     )
   }
+
+  const qi = sess.currentQuestionIndex || 0
+  const q = sess.questions?.[qi]
 
   return (
     <div className="card" id={'start-' + sess.id}>
@@ -146,7 +177,6 @@ export default function Interview({ sessions, setSessions }) {
       />
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={handleSubmitAnswer}>Submit</button>
-        <button onClick={handleAutoSubmit}>Auto-submit (force)</button>
         <div style={{ marginLeft: 'auto' }} className="small">Difficulty: {q.difficulty}</div>
       </div>
     </div>
