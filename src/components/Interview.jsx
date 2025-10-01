@@ -80,7 +80,6 @@ export default function Interview({ sessions, setSessions }) {
     return () => clearInterval(timer)
   }, [activeId, timeLeft, finished])
 
-  // Update session helper
   function updateSession(id, patch) {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
   }
@@ -93,6 +92,9 @@ export default function Interview({ sessions, setSessions }) {
     const qi = sess.currentQuestionIndex || 0
     const q = sess.questions[qi]
 
+    let score = 0
+    let feedback = ''
+
     try {
       const res = await fetch('/api/score', {
         method: 'POST',
@@ -100,40 +102,42 @@ export default function Interview({ sessions, setSessions }) {
         body: JSON.stringify({ question: q.text, answer })
       })
       const j = await res.json()
-      const score = j.score ?? 0
-      const feedback = j.feedback ?? ''
-
-      setSessions(prev => prev.map(s => {
-        if (s.id !== activeId) return s
-        const qs = s.questions.map((qq, idx) =>
-          idx === qi ? { ...qq, answer, score, feedback, timeRemaining: qq.timeRemaining } : qq
-        )
-        return { ...s, questions: qs, currentQuestionIndex: qi + 1 }
-      }))
-      setAnswer('')
+      score = Number(j.score ?? 0)
+      feedback = j.feedback ?? ''
     } catch (err) {
       console.error(err)
-      setSessions(prev => prev.map(s => {
-        if (s.id !== activeId) return s
-        const qs = s.questions.map((qq, idx) =>
-          idx === qi ? { ...qq, answer, score: 0, feedback: '(scoring failed)' } : qq
-        )
-        return { ...s, questions: qs, currentQuestionIndex: qi + 1 }
-      }))
-      setAnswer('')
+      score = 0
+      feedback = '(scoring failed)'
     }
 
-    // Check if finished
-    const now = sessions.find(s => s.id === activeId)
-    const idx = now?.currentQuestionIndex || 0
-    if (idx >= (now?.questions?.length || 6)) {
-      const avg = Math.round((now.questions.reduce((a, b) => a + (b.score || 0), 0) / now.questions.length) * 10) / 10
-      updateSession(activeId, { status: 'finished', finalScore: avg })
-      setFinished(true)
-    } else {
-      const next = now.questions[idx]
-      setTimeLeft(next.timeRemaining || next.timeLimit || 60)
-    }
+    // Update session and calculate final score if finished
+    setSessions(prev => {
+      const newPrev = prev.map(s => {
+        if (s.id !== activeId) return s
+        const qs = s.questions.map((qq, idx) =>
+          idx === qi ? { ...qq, answer, score, feedback } : qq
+        )
+        return { ...s, questions: qs, currentQuestionIndex: qi + 1 }
+      })
+
+      const updatedSess = newPrev.find(s => s.id === activeId)
+      const nextIndex = updatedSess?.currentQuestionIndex || 0
+
+      if (nextIndex >= (updatedSess?.questions?.length || 6)) {
+        const avg = Math.round(
+          (updatedSess.questions.reduce((a, b) => a + Number(b.score || 0), 0) / updatedSess.questions.length) * 10
+        ) / 10
+        updateSession(activeId, { status: 'finished', finalScore: avg })
+        setFinished(true)
+      } else {
+        const nextQ = updatedSess.questions[nextIndex]
+        setTimeLeft(nextQ.timeRemaining || nextQ.timeLimit || 60)
+      }
+
+      return newPrev
+    })
+
+    setAnswer('')
   }
 
   // Show list of sessions if no active session
@@ -201,4 +205,4 @@ export default function Interview({ sessions, setSessions }) {
       </div>
     </div>
   )
-          }
+}
