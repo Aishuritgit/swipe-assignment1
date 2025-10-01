@@ -70,10 +70,9 @@ export default function Interview({ sessions, setSessions }) {
     return () => clearInterval(timer)
   }, [activeId, timeLeft, finished])
 
-  // Submit answer and update score
+  // Submit answer and move to next question
   async function handleSubmitAnswer() {
     if (!activeId) return
-
     const currentAnswer = answer
     setAnswer('')
 
@@ -92,7 +91,7 @@ export default function Interview({ sessions, setSessions }) {
       const score = Math.round((j.score ?? 0) * 100) // 1-100 scale
       const feedback = j.feedback ?? ''
 
-      // Update session with score & feedback
+      // Update session correctly
       setSessions(prev =>
         prev.map(sess => {
           if (sess.id !== activeId) return sess
@@ -188,4 +187,4 @@ export default function Interview({ sessions, setSessions }) {
       </div>
     </div>
   )
-          }
+}
