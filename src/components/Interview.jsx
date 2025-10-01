@@ -76,7 +76,9 @@ export default function Interview({ sessions, setSessions }) {
   async function handleSubmitAnswer() {
     if (!activeId) return
 
-    // Update answer and score asynchronously
+    const currentAnswer = answer
+
+    // Update answer immediately
     setSessions(prev => {
       return prev.map(sess => {
         if (sess.id !== activeId) return sess
@@ -85,22 +87,10 @@ export default function Interview({ sessions, setSessions }) {
 
         const updatedQuestions = sess.questions.map((q, idx) => {
           if (idx !== qi) return q
-          return { ...q, answer, score: null, feedback: '' }
+          return { ...q, answer: currentAnswer }
         })
 
-        const nextIndex = qi + 1
-        let status = sess.status
-        let finalScore = sess.finalScore
-
-        if (nextIndex >= updatedQuestions.length) {
-          // Calculate final score
-          const sum = updatedQuestions.reduce((a, b) => a + (b.score || 0), 0)
-          finalScore = Math.round((sum / updatedQuestions.length) * 10) / 10
-          status = 'finished'
-          setFinished(true)
-        }
-
-        return { ...sess, questions: updatedQuestions, currentQuestionIndex: nextIndex, status, finalScore }
+        return { ...sess, questions: updatedQuestions, currentQuestionIndex: qi + 1 }
       })
     })
 
@@ -120,19 +110,26 @@ export default function Interview({ sessions, setSessions }) {
         body: JSON.stringify({ question: prevQ.text, answer: prevQ.answer })
       })
       const j = await res.json()
-      const score = Number(j.score ?? 0)
+      // Convert API score to 1-100 scale
+      const score = Math.round((j.score ?? 0) * 100)
       const feedback = j.feedback ?? ''
 
-      // Update question score and recalc final score
+      // Update session with score & feedback
       setSessions(prev => prev.map(sess => {
         if (sess.id !== activeId) return sess
-        const qs = sess.questions.map((q, idx) => idx === qi - 1 ? { ...q, score, feedback } : q)
-        let finalScore = sess.finalScore
-        if (sess.currentQuestionIndex >= qs.length) {
-          const sum = qs.reduce((a, b) => a + (b.score || 0), 0)
-          finalScore = Math.round((sum / qs.length) * 10) / 10
-        }
-        return { ...sess, questions: qs, finalScore }
+        const qs = sess.questions.map((q, idx) =>
+          idx === qi - 1 ? { ...q, score, feedback } : q
+        )
+
+        // Check if finished
+        const isFinished = (sess.currentQuestionIndex || 0) >= qs.length
+        const finalScore = isFinished
+          ? Math.round(qs.reduce((a, b) => a + (b.score ?? 0), 0) / qs.length)
+          : sess.finalScore
+
+        if (isFinished) setFinished(true)
+
+        return { ...sess, questions: qs, finalScore, status: isFinished ? 'finished' : sess.status }
       }))
     } catch (err) {
       console.error(err)
@@ -161,22 +158,17 @@ export default function Interview({ sessions, setSessions }) {
 
   // Results screen
   if (finished) {
-    const getScoreColor = (score) => score >= 8 ? 'green' : score >= 5 ? 'orange' : 'red'
     return (
       <div className="card" style={{ padding: 16 }}>
         <h3>Interview Finished — {sess.name || 'Candidate'}</h3>
-        <p>
-          <strong>Final Score: </strong>
-          <span style={{ color: 'white', backgroundColor: getScoreColor(sess.finalScore), padding: '4px 8px', borderRadius: 6 }}>
-            {sess.finalScore}
-          </span>
-        </p>
+        <p><strong>Final Score: </strong>{sess.finalScore}</p>
+        <h4>Answer Summary:</h4>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {sess.questions.map((q, idx) => (
             <li key={idx} style={{ marginBottom: 12, padding: 8, border: '1px solid #ddd', borderRadius: 8, backgroundColor: '#f9f9f9' }}>
               <div><strong>Q{idx + 1}:</strong> {q.text}</div>
               <div><strong>Answer:</strong> {q.answer || '-'}</div>
-              <div><strong>Score:</strong> <span style={{ color: 'white', backgroundColor: getScoreColor(q.score), padding: '2px 6px', borderRadius: 4 }}>{q.score}</span></div>
+              <div><strong>Score:</strong> {q.score}</div>
               <div style={{ fontStyle: 'italic', color: '#555' }}><strong>Feedback:</strong> {q.feedback || '-'}</div>
             </li>
           ))}
