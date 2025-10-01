@@ -72,29 +72,56 @@ export default function Interview({ sessions, setSessions }) {
     return () => clearInterval(timer)
   }, [activeId, timeLeft, finished])
 
-  // Submit answer and update score
-  async function handleSubmitAnswer() {
-    if (!activeId) return
+async function handleSubmitAnswer() {
+  if (!activeId) return
 
-    const currentAnswer = answer
+  const currentAnswer = answer
+  setAnswer('')
 
-    // Update answer immediately
-    setSessions(prev => {
-      return prev.map(sess => {
-        if (sess.id !== activeId) return sess
-        const qi = sess.currentQuestionIndex || 0
-        if (qi >= sess.questions.length) return sess // already finished
+  try {
+    // Call scoring API first
+    const sess = sessions.find(s => s.id === activeId)
+    const qi = sess?.currentQuestionIndex || 0
+    const q = sess.questions[qi]
 
-        const updatedQuestions = sess.questions.map((q, idx) => {
-          if (idx !== qi) return q
-          return { ...q, answer: currentAnswer }
-        })
-
-        return { ...sess, questions: updatedQuestions, currentQuestionIndex: qi + 1 }
-      })
+    const res = await fetch('/api/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q.text, answer: currentAnswer })
     })
+    const j = await res.json()
+    const score = Math.round((j.score ?? 0) * 100) // convert to 1-100 scale
+    const feedback = j.feedback ?? ''
 
-    setAnswer('')
+    // Update sessions state
+    setSessions(prev => prev.map(sess => {
+      if (sess.id !== activeId) return sess
+
+      const updatedQuestions = sess.questions.map((qq, idx) =>
+        idx === qi ? { ...qq, answer: currentAnswer, score, feedback } : qq
+      )
+
+      const nextIndex = qi + 1
+      const isFinished = nextIndex >= updatedQuestions.length
+      const finalScore = isFinished
+        ? Math.round(updatedQuestions.reduce((a, b) => a + (b.score ?? 0), 0) / updatedQuestions.length)
+        : sess.finalScore
+
+      if (isFinished) setFinished(true)
+
+      return {
+        ...sess,
+        questions: updatedQuestions,
+        currentQuestionIndex: nextIndex,
+        status: isFinished ? 'finished' : 'in-progress',
+        finalScore
+      }
+    }))
+
+  } catch (err) {
+    console.error(err)
+  }
+}
 
     // Call scoring API
     try {
